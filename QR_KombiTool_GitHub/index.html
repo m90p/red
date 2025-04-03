@@ -1,0 +1,188 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>QR Kombi-Tool: Scan, Etikett, Standort</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+        }
+        input, button, select {
+            font-size: 16px;
+            padding: 6px;
+            margin: 4px;
+        }
+        .section {
+            border-top: 1px solid #aaa;
+            margin-top: 30px;
+            padding-top: 10px;
+        }
+        .etikett {
+            border: 1px solid #000;
+            padding: 10mm;
+            margin: 10px auto;
+            text-align: center;
+            width: 10.4cm;
+            height: 7.2cm;
+            box-sizing: border-box;
+            page-break-after: always;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 6px;
+            text-align: center;
+        }
+        video {
+            width: 280px;
+        }
+        @media print {
+            body {
+                margin: 0;
+            }
+            .etikett {
+                page-break-after: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>QR Kombi-Tool</h1>
+
+    <!-- 1: Kamera Scan für Palette -->
+    <div class="section">
+        <h2>1. Palette scannen (Kamera)</h2>
+        <video id="camPreview"></video>
+        <p id="palScanResult"><em>Scan-Ergebnis erscheint hier...</em></p>
+        <button onclick="savePalette()">Speichern</button>
+    </div>
+
+    <!-- 2: Manuelle Standorteingabe -->
+    <div class="section">
+        <h2>2. Standort manuell eingeben</h2>
+        <input id="kat1" placeholder="Kategorie 1">
+        <input id="kat2" placeholder="Kategorie 2">
+        <button onclick="saveStandort()">Speichern</button>
+    </div>
+
+    <!-- 3: Etiketten drucken -->
+    <div class="section">
+        <h2>3. Etikett drucken</h2>
+        <input id="etikettInhalt" placeholder="Inhalt für Etikett" size="40">
+        <input type="number" id="etikettAnzahl" value="1" min="1" style="width:60px;">
+        <select id="etikettFormat">
+            <option value="a4">A4</option>
+            <option value="zebra">Zebra 10.4×7.2 cm</option>
+        </select>
+        <button onclick="generateEtiketten()">Erstellen</button>
+        <button onclick="window.print()">Drucken</button>
+        <div id="etikettenContainer"></div>
+    </div>
+
+    <!-- 4: Tabelle mit Export -->
+    <div class="section">
+        <h2>4. Erfasste Daten</h2>
+        <button onclick="exportCSV()">CSV herunterladen</button>
+        <table>
+            <thead><tr><th>#</th><th>Typ</th><th>Daten</th><th>QR</th></tr></thead>
+            <tbody id="dataTable"></tbody>
+        </table>
+    </div>
+
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <script>
+        let counter = 1;
+        let palData = "";
+
+        const dataTable = document.getElementById("dataTable");
+
+        function generateQR(data) {
+            const qr = new QRious({ value: data, size: 120 });
+            return `<img src="${qr.toDataURL()}">`;
+        }
+
+        function savePalette() {
+            if (!palData) return;
+            const row = document.createElement("tr");
+            row.innerHTML = `<td>${counter++}</td><td>Palette</td><td>${palData}</td><td>${generateQR(palData)}</td>`;
+            dataTable.appendChild(row);
+            palData = "";
+            document.getElementById("palScanResult").innerText = "";
+        }
+
+        function saveStandort() {
+            const k1 = document.getElementById("kat1").value.trim();
+            const k2 = document.getElementById("kat2").value.trim();
+            const content = `${k1} | ${k2}`;
+            if (!k1 && !k2) return;
+            const row = document.createElement("tr");
+            row.innerHTML = `<td>${counter++}</td><td>Standort</td><td>${content}</td><td>${generateQR(content)}</td>`;
+            dataTable.appendChild(row);
+            document.getElementById("kat1").value = "";
+            document.getElementById("kat2").value = "";
+        }
+
+        function exportCSV() {
+            let csv = "Nr,Typ,Daten\n";
+            const rows = dataTable.querySelectorAll("tr");
+            rows.forEach(row => {
+                const cols = row.querySelectorAll("td");
+                if (cols.length >= 3) {
+                    const rowData = [cols[0].innerText, cols[1].innerText, cols[2].innerText];
+                    csv += rowData.join(",") + "\n";
+                }
+            });
+            const blob = new Blob([csv], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "Erfasste_Daten.csv";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function generateEtiketten() {
+            const container = document.getElementById("etikettenContainer");
+            container.innerHTML = "";
+            const text = document.getElementById("etikettInhalt").value.trim();
+            const anzahl = parseInt(document.getElementById("etikettAnzahl").value);
+            const format = document.getElementById("etikettFormat").value;
+            if (!text || isNaN(anzahl)) return;
+
+            for (let i = 0; i < anzahl; i++) {
+                const qr = new QRious({ value: text, size: 180 });
+                const div = document.createElement("div");
+                div.className = "etikett";
+                div.style.width = format === "a4" ? "14cm" : "10.4cm";
+                div.style.height = format === "a4" ? "8.5cm" : "7.2cm";
+                div.innerHTML = `<div><strong>${text}</strong></div><img src="${qr.toDataURL()}">`;
+                container.appendChild(div);
+            }
+        }
+
+        // Starte Kamera
+        const cam = new Html5Qrcode("camPreview");
+        Html5Qrcode.getCameras().then(devices => {
+            if (devices && devices.length) {
+                cam.start(
+                    devices[0].id,
+                    { fps: 10, qrbox: 200 },
+                    message => {
+                        palData = message;
+                        document.getElementById("palScanResult").innerHTML = `<strong>Erkannt:</strong> ${message}`;
+                    },
+                    error => {}
+                );
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+
+{
+  "name": "QR Kombi-Tool",
+  "short_name": "QR Tool",
+  "start_url": "QR_KombiTool_Ultimate.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "description": "QR-Tool für Palette, Standort, Etiketten und Druck",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/159/159604.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#ffffff"
+}
